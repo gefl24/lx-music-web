@@ -13,9 +13,18 @@ const crypto = require('crypto')
 const zlib = require('zlib')
 const fetch = require('node-fetch')
 const EventEmitter = require('events')
-const FormData = require('form-data') // 需要 npm install form-data
 const fs = require('fs')
 const path = require('path')
+
+// 尝试加载 form-data 模块，如果不可用则使用替代方案
+let FormData = null
+try {
+  FormData = require('form-data')
+  console.log('[SourceEngine] 成功加载 form-data 模块')
+} catch (error) {
+  console.log('[SourceEngine] form-data 模块不可用，使用替代方案')
+  FormData = null
+}
 
 class SourceEngine extends EventEmitter {
   constructor(options = {}) {
@@ -371,10 +380,21 @@ class SourceEngine extends EventEmitter {
             fetchOpts.headers['Content-Type'] = 'application/json'
           }
         } else if (options.form) {
-          const form = new FormData()
-          for (const k in options.form) form.append(k, options.form[k])
-          fetchOpts.body = form
-          // node-fetch 会自动设置 multipart headers
+          if (FormData) {
+            const form = new FormData()
+            for (const k in options.form) form.append(k, options.form[k])
+            fetchOpts.body = form
+            // node-fetch 会自动设置 multipart headers
+          } else {
+            // FormData 不可用时，使用 URLSearchParams 替代
+            console.log('[SourceEngine] FormData 不可用，使用 URLSearchParams 替代')
+            const params = new URLSearchParams()
+            for (const k in options.form) params.append(k, options.form[k])
+            fetchOpts.body = params.toString()
+            if (!fetchOpts.headers['Content-Type']) {
+              fetchOpts.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+            }
+          }
         } else if (options.data) {
           // 处理 data 格式
           const params = new URLSearchParams()
