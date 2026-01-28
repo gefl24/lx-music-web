@@ -43,6 +43,27 @@ class DatabaseManager {
    * 初始化数据库表
    */
   initTables() {
+    // 用户表
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        password_salt TEXT NOT NULL,
+        email TEXT,
+        role TEXT DEFAULT 'user',
+        avatar TEXT,
+        bio TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        last_login_at INTEGER
+      )
+    `)
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)
+    `)
+
     // 下载任务表
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS downloads (
@@ -81,13 +102,19 @@ class DatabaseManager {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS playlists (
         id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
         name TEXT NOT NULL,
         description TEXT,
         cover_url TEXT,
-        song_count INTEGER DEFAULT 0,
+        is_public INTEGER DEFAULT 0,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER
+        updated_at INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
+    `)
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_playlists_user ON playlists(user_id)
     `)
 
     // 播放列表歌曲关联表
@@ -97,6 +124,7 @@ class DatabaseManager {
         playlist_id TEXT NOT NULL,
         song_id TEXT NOT NULL,
         song_info TEXT NOT NULL,
+        source TEXT,
         sort_order INTEGER,
         added_at INTEGER NOT NULL,
         FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
@@ -105,6 +133,84 @@ class DatabaseManager {
 
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_playlist_songs_playlist ON playlist_songs(playlist_id)
+    `)
+
+    // 收藏歌曲表
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS favorite_songs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        song_id TEXT NOT NULL,
+        song_info TEXT NOT NULL,
+        source TEXT,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(user_id, song_id)
+      )
+    `)
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_favorite_songs_user ON favorite_songs(user_id)
+    `)
+
+    // 订阅歌单表
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS favorite_playlists (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        playlist_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
+        UNIQUE(user_id, playlist_id)
+      )
+    `)
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_favorite_playlists_user ON favorite_playlists(user_id)
+    `)
+
+    // 标签表
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS tags (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        color TEXT DEFAULT '#409EFF',
+        description TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(user_id, name)
+      )
+    `)
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_tags_user ON tags(user_id)
+    `)
+
+    // 歌曲标签关联表
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS song_tags (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        song_id TEXT NOT NULL,
+        tag_id TEXT NOT NULL,
+        song_info TEXT NOT NULL,
+        source TEXT,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+        UNIQUE(user_id, song_id, tag_id)
+      )
+    `)
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_song_tags_user ON song_tags(user_id)
+    `)
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_song_tags_tag ON song_tags(tag_id)
     `)
 
     // 播放历史表
