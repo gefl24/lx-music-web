@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  lx-music-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lx-music-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # 数据持久化
+      - ./data:/app/data
+      # 音乐文件存储
+      - ./music:/app/music
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATA_DIR=/app/data
+      - MUSIC_DIR=/app/music
+      # 可选: 设置代理
+      # - HTTP_PROXY=http://proxy.example.com:8080
+      # - HTTPS_PROXY=http://proxy.example.com:8080
+    networks:
+      - lx-music-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "com.docker.compose.project=lx-music-web"
+
+networks:
+  lx-music-network:
+    driver: bridge
+
+volumes:
+  data:
+  music:
