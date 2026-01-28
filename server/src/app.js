@@ -101,9 +101,17 @@ class Application {
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
     // 静态文件服务
-    const publicDir = path.join(__dirname, '../../public')
+    // 优先尝试 Docker 环境路径 (../public)，如果不存在则尝试本地开发路径 (../../public)
+    let publicDir = path.join(__dirname, '../public')
+    if (!fs.existsSync(publicDir)) {
+      publicDir = path.join(__dirname, '../../public')
+    }
+
     if (fs.existsSync(publicDir)) {
+      console.log(`[App] 静态文件目录: ${publicDir}`) // 添加日志方便调试
       this.app.use(express.static(publicDir))
+    } else {
+      console.warn('[App] ⚠️ 未找到静态文件目录，仅提供 API 服务')
     }
 
     // 音乐文件服务
