@@ -15,8 +15,8 @@ WORKDIR /build/client
 # 只复制 package 文件以利用 Docker 缓存
 COPY client/package.json client/package-lock.json* ./
 
-# 安装前端依赖
-RUN npm ci --prefer-offline --no-audit
+# 安装前端依赖 (使用 install 以支持没有 lock 文件的情况)
+RUN npm install --prefer-offline --no-audit || npm install --no-audit
 
 # 复制前端源代码
 COPY client/ ./
@@ -40,8 +40,9 @@ WORKDIR /build/server
 COPY server/package.json server/package-lock.json* ./
 
 # 安装生产依赖 (包含 better-sqlite3 需要编译)
+# 使用 install 以支持没有 lock 文件的情况
 RUN apk add --no-cache python3 make g++ \
-    && npm ci --only=production --prefer-offline --no-audit \
+    && npm install --only=production --prefer-offline --no-audit || npm install --only=production --no-audit \
     && apk del python3 make g++
 
 # ===================================
@@ -81,12 +82,15 @@ RUN mkdir -p /app/data /app/music \
 # 切换到非 root 用户
 USER node
 
+# 构建参数
+ARG JWT_SECRET=please-change-this-in-production
+
 # 环境变量
 ENV NODE_ENV=production \
     PORT=3000 \
     DATA_DIR=/app/data \
     MUSIC_DIR=/app/music \
-    JWT_SECRET=please-change-this-in-production
+    JWT_SECRET=${JWT_SECRET}
 
 # 暴露端口
 EXPOSE 3000
