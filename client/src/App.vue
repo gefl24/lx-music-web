@@ -18,6 +18,22 @@
             <el-icon><Download /></el-icon>
             <span>下载管理</span>
           </el-menu-item>
+          <el-menu-item index="/source">
+            <el-icon><Collection /></el-icon>
+            <span>音源管理</span>
+          </el-menu-item>
+          <el-menu-item index="/playlist">
+            <el-icon><List /></el-icon>
+            <span>歌单管理</span>
+          </el-menu-item>
+          <el-menu-item index="/leaderboard">
+            <el-icon><Top /></el-icon>
+            <span>音乐榜单</span>
+          </el-menu-item>
+          <el-menu-item index="/settings">
+            <el-icon><Setting /></el-icon>
+            <span>系统设置</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
       
@@ -34,7 +50,7 @@
 
 <script setup>
 import MusicPlayer from '@/components/MusicPlayer.vue'
-import { Search, Download } from '@element-plus/icons-vue'
+import { Search, Download, Collection, List, Top, Setting } from '@element-plus/icons-vue'
 </script>
 
 <style lang="scss">
