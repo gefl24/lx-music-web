@@ -1,0 +1,43 @@
+version: '3.8'
+
+# 开发环境 Docker Compose 配置
+# 使用方式: docker-compose -f docker-compose.dev.yml up
+
+services:
+  lx-music-web-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lx-music-web:dev
+    container_name: lx-music-web-dev
+    restart: unless-stopped
+    
+    ports:
+      - "3000:3000"
+      - "5173:5173"  # Vite 开发服务器
+    
+    volumes:
+      # 挂载本地目录以支持热重载
+      - ./server/src:/app/src:ro
+      - ./data:/app/data
+      - ./music:/app/music
+    
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DATA_DIR=/app/data
+      - MUSIC_DIR=/app/music
+      - JWT_SECRET=dev-secret-key
+      - LOG_LEVEL=debug
+    
+    networks:
+      - lx-music-dev-network
+    
+    command: ["node", "index.js"]
+    
+    labels:
+      - "com.docker.compose.project=lx-music-web-dev"
+
+networks:
+  lx-music-dev-network:
+    driver: bridge
