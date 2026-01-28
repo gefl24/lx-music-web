@@ -25,7 +25,13 @@ class SourceEngine extends EventEmitter {
     this.sessions = new Map()  // 会话管理 { source: { cookies, headers, ... } }
     this.requestCache = new Map()  // 请求缓存 { url: { data, timestamp } }
     this.lastRequestTime = 0  // 上次请求时间
-    this.requestDelay = 2000  // 请求延迟（毫秒）
+    this.requestDelay = 5000  // 请求延迟（毫秒）- 增加到5秒，避免频繁请求
+    this.apiAlternatives = [  // 备用API服务
+      'https://lxmusicapi.onrender.com',
+      'https://api.lxmusic.net',
+      'https://music-api.example.com'
+    ]
+    this.currentApiIndex = 0  // 当前使用的API索引
     this.options = {
       timeout: options.timeout || 15000,
       enableCache: options.enableCache !== false,
@@ -299,13 +305,20 @@ class SourceEngine extends EventEmitter {
   createRequestProxy() {
     return (url, options = {}, callback) => {
       const run = async () => {
-        // 检查缓存
+        // 检查缓存，但对于block ip错误不使用缓存
         const cacheKey = `${url}_${options.method || 'GET'}`
         if (this.options.enableCache && this.requestCache.has(cacheKey)) {
           const cached = this.requestCache.get(cacheKey)
           if (Date.now() - cached.timestamp < 300000) { // 5分钟缓存
-            console.log(`[SourceEngine] 使用缓存响应:`, url.substring(0, 60) + '...')
-            return cached.data
+            // 检查缓存数据是否包含block ip错误
+            const cachedBody = cached.data.body
+            if (cachedBody && typeof cachedBody === 'object' && cachedBody.message && cachedBody.message.includes('block')) {
+              console.log(`[SourceEngine] 缓存包含block ip错误，清除缓存并重新请求`)
+              this.requestCache.delete(cacheKey)
+            } else {
+              console.log(`[SourceEngine] 使用缓存响应:`, url.substring(0, 60) + '...')
+              return cached.data
+            }
           }
         }
 
@@ -427,8 +440,16 @@ class SourceEngine extends EventEmitter {
             headers: resp.headers.raw()
           }
 
-          // 缓存响应
-          if (this.options.enableCache && !options.binary) {
+          // 检查是否为block ip错误
+          const isBlockError = body && typeof body === 'object' && body.message && body.message.includes('block')
+          if (isBlockError) {
+            console.error(`[SourceEngine] 遇到 IP 封禁:`, body.message)
+            // 清除此URL的缓存
+            this.requestCache.delete(cacheKey)
+            // 尝试使用下一个API端点
+            this.rotateApiEndpoint()
+          } else if (this.options.enableCache && !options.binary) {
+            // 缓存成功响应
             this.requestCache.set(cacheKey, {
               data: responseData,
               timestamp: Date.now()
@@ -466,9 +487,22 @@ class SourceEngine extends EventEmitter {
               headers: resp.headers.raw()
             }
             
+            // 检查是否为block ip错误
+            const isBlockError = body && typeof body === 'object' && body.message && body.message.includes('block')
+            if (isBlockError) {
+              console.error(`[SourceEngine] 遇到 IP 封禁:`, body.message)
+              // 清除此URL的缓存
+              this.requestCache.delete(cacheKey)
+              // 尝试使用下一个API端点
+              this.rotateApiEndpoint()
+            }
+            
             return responseData
           } catch (retryError) {
             console.error(`[SourceEngine] 重试失败:`, retryError.message)
+            // 尝试使用不同的API端点
+            console.log(`[SourceEngine] 尝试使用不同的API端点`)
+            this.rotateApiEndpoint()
             throw retryError
           }
         }
@@ -478,6 +512,21 @@ class SourceEngine extends EventEmitter {
       if (callback) p.then(r => callback(null, r)).catch(e => callback(e))
       return p
     }
+  }
+
+  /**
+   * 轮换API端点
+   */
+  rotateApiEndpoint() {
+    this.currentApiIndex = (this.currentApiIndex + 1) % this.apiAlternatives.length
+    console.log(`[SourceEngine] 切换到API端点:`, this.apiAlternatives[this.currentApiIndex])
+  }
+
+  /**
+   * 获取当前API端点
+   */
+  getCurrentApiEndpoint() {
+    return this.apiAlternatives[this.currentApiIndex]
   }
 
   /**
