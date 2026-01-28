@@ -1,76 +1,102 @@
 # ===================================
-# Stage 1: Build Frontend
+# LX Music Web - Production Dockerfile
+# 多阶段构建,优化镜像大小和构建速度
+# ===================================
+
+# ===================================
+# Stage 1: Frontend Builder
 # ===================================
 FROM node:18-alpine AS frontend-builder
 
+LABEL stage=frontend-builder
+
 WORKDIR /build/client
 
-# Copy client package files
-COPY client/package*.json ./
+# 只复制 package 文件以利用 Docker 缓存
+COPY client/package.json client/package-lock.json* ./
 
-# Install dependencies
-RUN npm ci
+# 安装前端依赖
+RUN npm ci --prefer-offline --no-audit
 
-# Copy client source
+# 复制前端源代码
 COPY client/ ./
 
-# Build frontend
+# 构建前端静态文件
 RUN npm run build
 
+# 验证构建产物
+RUN ls -la dist/
+
 # ===================================
-# Stage 2: Build Backend
+# Stage 2: Backend Builder
 # ===================================
 FROM node:18-alpine AS backend-builder
 
+LABEL stage=backend-builder
+
 WORKDIR /build/server
 
-# Copy server package files
-COPY server/package*.json ./
+# 复制 package 文件
+COPY server/package.json server/package-lock.json* ./
 
-# Install production dependencies
-RUN npm ci --only=production
+# 安装生产依赖 (包含 better-sqlite3 需要编译)
+RUN apk add --no-cache python3 make g++ \
+    && npm ci --only=production --prefer-offline --no-audit \
+    && apk del python3 make g++
 
 # ===================================
 # Stage 3: Runtime
 # ===================================
 FROM node:18-alpine
 
-LABEL maintainer="lx-music-web"
-LABEL description="LX Music Web Server - Dockerized Music Service"
+LABEL maintainer="lx-music-web" \
+      description="LX Music Web - Docker化音乐服务" \
+      version="2.0.0"
 
 WORKDIR /app
 
-# Install runtime dependencies
+# 安装运行时依赖
 RUN apk add --no-cache \
     ffmpeg \
     ca-certificates \
     tzdata \
+    tini \
     && rm -rf /var/cache/apk/*
 
-# Copy backend files
+# 复制后端依赖
 COPY --from=backend-builder /build/server/node_modules ./node_modules
+
+# 复制后端源代码
 COPY server/src ./src
 COPY server/index.js ./
 COPY server/package.json ./
 
-# Copy frontend build
+# 复制前端构建产物
 COPY --from=frontend-builder /build/client/dist ./public
 
-# Create directories
-RUN mkdir -p /app/data /app/music
+# 创建数据目录
+RUN mkdir -p /app/data /app/music \
+    && chown -R node:node /app
 
-# Set environment variables
+# 切换到非 root 用户
+USER node
+
+# 环境变量
 ENV NODE_ENV=production \
     PORT=3000 \
     DATA_DIR=/app/data \
-    MUSIC_DIR=/app/music
+    MUSIC_DIR=/app/music \
+    JWT_SECRET=please-change-this-in-production
 
-# Expose port
+# 暴露端口
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=30s \
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Start application
+# 使用 tini 作为初始化进程
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# 启动应用
 CMD ["node", "index.js"]
