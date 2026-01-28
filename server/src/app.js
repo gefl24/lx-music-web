@@ -20,6 +20,10 @@ const musicRouter = require('./routes/music')
 const downloadRouter = require('./routes/download')
 const sourceRouter = require('./routes/source')
 const proxyRouter = require('./routes/proxy')
+const userRouter = require('./routes/user')
+const playlistRouter = require('./routes/playlist')
+const favoriteRouter = require('./routes/favorite')
+const tagRouter = require('./routes/tag')
 
 // 环境配置
 const PORT = process.env.PORT || 3000
@@ -135,6 +139,10 @@ class Application {
     this.app.use('/api/download', downloadRouter)
     this.app.use('/api/source', sourceRouter)
     this.app.use('/api/proxy', proxyRouter)
+    this.app.use('/api/user', userRouter)
+    this.app.use('/api/playlist', playlistRouter)
+    this.app.use('/api/favorite', favoriteRouter)
+    this.app.use('/api/tag', tagRouter)
 
     // 根路由
     this.app.get('/', (req, res) => {
