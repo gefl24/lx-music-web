@@ -27,10 +27,10 @@
           <el-table-column prop="name" label="音源名称" width="200" />
           <el-table-column prop="version" label="版本" width="100" />
           <el-table-column prop="author" label="作者" width="120" />
-          <el-table-column prop="status" label="状态" width="100">
+          <el-table-column prop="enabled" label="状态" width="100">
             <template #default="{ row }">
-              <el-tag :type="row.status === 'active' ? 'success' : 'info'">
-                {{ row.status === 'active' ? '启用' : '禁用' }}
+              <el-tag :type="row.enabled ? 'success' : 'info'">
+                {{ row.enabled ? '启用' : '禁用' }}
               </el-tag>
             </template>
           </el-table-column>
@@ -39,11 +39,11 @@
               <el-button
                 type="primary"
                 size="small"
-                :icon="row.status === 'active' ? 'SwitchButton' : 'Check'"
-                @click="toggleSource(row.id, row.status !== 'active')"
+                :icon="row.enabled ? 'SwitchButton' : 'Check'"
+                @click="toggleSource(row.id, !row.enabled)"
                 :loading="loadingSources.includes(row.id)"
               >
-                {{ row.status === 'active' ? '禁用' : '启用' }}
+                {{ row.enabled ? '禁用' : '启用' }}
               </el-button>
               <el-button
                 type="danger"
@@ -75,7 +75,8 @@ const loadingSources = ref([])
 const loadSources = async () => {
   try {
     const response = await axios.get('/api/source/list')
-    sourceList.value = response.data.sources || []
+    // 修复：正确读取后端返回的 saved 列表
+    sourceList.value = response.data.data?.saved || []
   } catch (error) {
     ElMessage.error('加载音源失败')
     console.error('Failed to load sources:', error)
@@ -97,9 +98,10 @@ const handleUploadError = () => {
 const toggleSource = async (id, enable) => {
   loadingSources.value.push(id)
   try {
+    // 修复：参数名调整为后端期望的 sourceId 和 enabled
     await axios.post('/api/source/toggle', {
-      id,
-      enable
+      sourceId: id,
+      enabled: enable
     })
     ElMessage.success(enable ? '启用成功' : '禁用成功')
     loadSources()
@@ -115,7 +117,8 @@ const toggleSource = async (id, enable) => {
 const deleteSource = async (id) => {
   loadingSources.value.push(id)
   try {
-    await axios.delete(`/api/source/delete/${id}`)
+    // 修复：修正删除接口的 URL 路径
+    await axios.delete(`/api/source/${id}`)
     ElMessage.success('删除成功')
     loadSources()
   } catch (error) {
