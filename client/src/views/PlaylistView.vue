@@ -11,7 +11,6 @@
         </div>
       </template>
 
-      <!-- 创建歌单对话框 -->
       <el-dialog
         v-model="showCreateDialog"
         title="创建新歌单"
@@ -107,7 +106,8 @@ const newPlaylist = ref({
 const loadPlaylists = async () => {
   try {
     const response = await axios.get('/api/playlist/list')
-    playlistList.value = response.data.playlists || []
+    // 修复：正确读取后端返回的数据结构
+    playlistList.value = response.data.data || []
   } catch (error) {
     ElMessage.error('加载歌单失败')
     console.error('Failed to load playlists:', error)
@@ -138,7 +138,6 @@ const createPlaylist = async () => {
 
 // 编辑歌单
 const editPlaylist = (playlist) => {
-  // 这里可以实现编辑功能，暂时只做提示
   ElMessage.info('编辑功能开发中')
 }
 
@@ -155,7 +154,8 @@ const deletePlaylist = async (id) => {
       }
     )
     
-    await axios.delete(`/api/playlist/delete/${id}`)
+    // 修复：修正删除接口的 URL 路径
+    await axios.delete(`/api/playlist/${id}`)
     ElMessage.success('删除成功')
     loadPlaylists()
   } catch (error) {
@@ -168,7 +168,6 @@ const deletePlaylist = async (id) => {
 
 // 查看歌单详情
 const viewPlaylist = (playlist) => {
-  // 这里可以实现查看详情功能，暂时只做提示
   ElMessage.info('查看详情功能开发中')
 }
 
