@@ -95,7 +95,8 @@ const loading = ref(false)
 const loadSources = async () => {
   try {
     const response = await axios.get('/api/source/list')
-    sourceList.value = response.data.sources || []
+    // 修复：正确读取后端返回的 saved 列表
+    sourceList.value = response.data.data?.saved || []
   } catch (error) {
     ElMessage.error('加载音源失败')
     console.error('Failed to load sources:', error)
@@ -108,12 +109,9 @@ const loadLeaderboard = async () => {
 
   loading.value = true
   try {
-    const response = await axios.get('/api/music/leaderboard', {
-      params: {
-        sourceId: selectedSource.value
-      }
-    })
-    leaderboardData.value = response.data.leaderboards || []
+    // 修复：使用 URL 路径参数传递 sourceId，并正确解析返回数据
+    const response = await axios.get(`/api/music/leaderboard/${selectedSource.value}`)
+    leaderboardData.value = response.data.data || []
     if (leaderboardData.value.length > 0) {
       activeTab.value = leaderboardData.value[0].id
     }
