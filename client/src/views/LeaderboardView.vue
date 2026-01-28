@@ -57,7 +57,7 @@
                       size="small"
                       @click="playSong(song)"
                     >
-                      <el-icon><Play /></el-icon>
+                      <el-icon><VideoPlay /></el-icon>
                       播放
                     </el-button>
                     <el-button
@@ -81,7 +81,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue'
-import { Play, Download, RefreshLeft } from '@element-plus/icons-vue'
+import { VideoPlay, Download, RefreshLeft } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
 
