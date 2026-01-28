@@ -69,7 +69,7 @@
             <div class="playlist-info">
               <p class="playlist-description">{{ playlist.description || '暂无描述' }}</p>
               <p class="playlist-count">
-                <el-icon><Music /></el-icon>
+                <el-icon><Collection /></el-icon>
                 {{ playlist.songCount || 0 }} 首歌曲
               </p>
             </div>
@@ -92,7 +92,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Plus, Music, Delete, Edit } from '@element-plus/icons-vue'
+import { Plus, Collection, Delete, Edit } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
 
