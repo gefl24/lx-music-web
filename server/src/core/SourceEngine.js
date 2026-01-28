@@ -23,6 +23,9 @@ class SourceEngine extends EventEmitter {
     this.sources = new Map()   // 存储源元数据
     this.handlers = new Map()  // 存储源的请求处理器 { sourceId: handlerFunction }
     this.sessions = new Map()  // 会话管理 { source: { cookies, headers, ... } }
+    this.requestCache = new Map()  // 请求缓存 { url: { data, timestamp } }
+    this.lastRequestTime = 0  // 上次请求时间
+    this.requestDelay = 2000  // 请求延迟（毫秒）
     this.options = {
       timeout: options.timeout || 15000,
       enableCache: options.enableCache !== false,
@@ -296,6 +299,16 @@ class SourceEngine extends EventEmitter {
   createRequestProxy() {
     return (url, options = {}, callback) => {
       const run = async () => {
+        // 检查缓存
+        const cacheKey = `${url}_${options.method || 'GET'}`
+        if (this.options.enableCache && this.requestCache.has(cacheKey)) {
+          const cached = this.requestCache.get(cacheKey)
+          if (Date.now() - cached.timestamp < 300000) { // 5分钟缓存
+            console.log(`[SourceEngine] 使用缓存响应:`, url.substring(0, 60) + '...')
+            return cached.data
+          }
+        }
+
         // 从 URL 中提取源信息
         let source = 'default'
         if (url.includes('qq.com')) source = 'tx'
@@ -306,6 +319,16 @@ class SourceEngine extends EventEmitter {
         
         // 获取会话信息
         const session = this.getSession(source)
+        
+        // 添加请求延迟，避免频繁请求
+        const now = Date.now()
+        const timeSinceLastRequest = now - this.lastRequestTime
+        if (timeSinceLastRequest < this.requestDelay) {
+          const delay = this.requestDelay - timeSinceLastRequest
+          console.log(`[SourceEngine] 添加 ${delay}ms 请求延迟，避免 IP 封禁`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+        }
+        this.lastRequestTime = Date.now()
         
         // 构造请求选项
         const fetchOpts = {
@@ -356,51 +379,98 @@ class SourceEngine extends EventEmitter {
           hasCookies: Object.keys(session.cookies).length > 0
         })
 
-        // 发送请求
-        const resp = await fetch(url, fetchOpts)
-        
-        // 更新会话中的 cookies
-        const setCookie = resp.headers.get('set-cookie')
-        if (setCookie) {
-          session.cookies = {
-            ...session.cookies,
-            ...setCookie.split(';').reduce((acc, cookie) => {
-              const [key, value] = cookie.split('=').map(s => s.trim())
-              if (key && value) acc[key] = value
-              return acc
-            }, {})
-          }
-        }
-
-        // 处理返回数据 (text/json/buffer)
-        let body
-        if (options.binary) {
-          body = await resp.buffer()
-          console.log(`[SourceEngine] 收到二进制响应:`, body.length, 'bytes')
+        try {
+          // 发送请求
+          const resp = await fetch(url, fetchOpts)
           
-          // 检测是否为9秒音频片段
-          if (this.is9SecondFragment(body, url)) {
-            console.warn(`[SourceEngine] 检测到9秒音频片段，尝试使用替代方法获取完整音频`)
-            // 这里可以实现替代方法，比如尝试不同的音质或请求方式
+          // 更新会话中的 cookies
+          const setCookie = resp.headers.get('set-cookie')
+          if (setCookie) {
+            session.cookies = {
+              ...session.cookies,
+              ...setCookie.split(';').reduce((acc, cookie) => {
+                const [key, value] = cookie.split('=').map(s => s.trim())
+                if (key && value) acc[key] = value
+                return acc
+              }, {})
+            }
           }
-        } else {
-          const text = await resp.text()
-          try {
-            body = JSON.parse(text)
-            console.log(`[SourceEngine] 收到 JSON 响应:`, {
-              code: body.code,
-              message: body.msg || body.message
-            })
-          } catch {
-            body = text
-            console.log(`[SourceEngine] 收到文本响应:`, text.substring(0, 200) + (text.length > 200 ? '...' : ''))
-          }
-        }
 
-        return {
-          statusCode: resp.status,
-          body: body,
-          headers: resp.headers.raw()
+          // 处理返回数据 (text/json/buffer)
+          let body
+          if (options.binary) {
+            body = await resp.buffer()
+            console.log(`[SourceEngine] 收到二进制响应:`, body.length, 'bytes')
+            
+            // 检测是否为9秒音频片段
+            if (this.is9SecondFragment(body, url)) {
+              console.warn(`[SourceEngine] 检测到9秒音频片段，尝试使用替代方法获取完整音频`)
+              // 这里可以实现替代方法，比如尝试不同的音质或请求方式
+            }
+          } else {
+            const text = await resp.text()
+            try {
+              body = JSON.parse(text)
+              console.log(`[SourceEngine] 收到 JSON 响应:`, {
+                code: body.code,
+                message: body.msg || body.message
+              })
+            } catch {
+              body = text
+              console.log(`[SourceEngine] 收到文本响应:`, text.substring(0, 200) + (text.length > 200 ? '...' : ''))
+            }
+          }
+
+          const responseData = {
+            statusCode: resp.status,
+            body: body,
+            headers: resp.headers.raw()
+          }
+
+          // 缓存响应
+          if (this.options.enableCache && !options.binary) {
+            this.requestCache.set(cacheKey, {
+              data: responseData,
+              timestamp: Date.now()
+            })
+          }
+
+          return responseData
+        } catch (error) {
+          console.error(`[SourceEngine] 请求失败:`, error.message)
+          // 尝试使用不同的IP和请求头
+          console.log(`[SourceEngine] 尝试使用备用请求配置`)
+          
+          // 更新会话的IP地址
+          if (source === 'wy') {
+            session.headers['X-Real-IP'] = this.getRandomIP()
+          }
+          
+          // 添加随机延迟后重试
+          await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000))
+          
+          // 重新发送请求
+          try {
+            const resp = await fetch(url, fetchOpts)
+            const text = await resp.text()
+            let body
+            try {
+              body = JSON.parse(text)
+            } catch {
+              body = text
+            }
+            
+            const responseData = {
+              statusCode: resp.status,
+              body: body,
+              headers: resp.headers.raw()
+            }
+            
+            return responseData
+          } catch (retryError) {
+            console.error(`[SourceEngine] 重试失败:`, retryError.message)
+            throw retryError
+          }
         }
       }
 
@@ -408,6 +478,14 @@ class SourceEngine extends EventEmitter {
       if (callback) p.then(r => callback(null, r)).catch(e => callback(e))
       return p
     }
+  }
+
+  /**
+   * 清除请求缓存
+   */
+  clearCache() {
+    this.requestCache.clear()
+    console.log(`[SourceEngine] 请求缓存已清除`)
   }
 
   /**
