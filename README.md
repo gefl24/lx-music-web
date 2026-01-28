@@ -1,214 +1,126 @@
-# LX Music Web Server
+# 🎵 LX Music Web
 
-基于 lx-music-desktop 核心逻辑的 Web 服务器版本。
+基于 lx-music-desktop 核心逻辑的 Web 版本,支持 Docker 一键部署。
 
 ## ✨ 特性
 
 - 🎵 **多音源支持**: 完全兼容 lx-music-desktop 的自定义源
+- 🌐 **Web 访问**: 无需安装客户端,浏览器即可使用
 - 📥 **服务器端下载**: 支持断点续传、队列管理
 - 🔄 **实时推送**: WebSocket 实时推送下载进度
 - 🛡️ **防盗链代理**: 自动处理音乐平台的防盗链
 - 💾 **数据持久化**: SQLite 数据库存储
 - 🐳 **容器化部署**: Docker 一键部署
+- 🎨 **现代化 UI**: Vue 3 + Element Plus
 
-## 📦 安装
+## 📸 预览
 
-### 方式一: 本地安装
+```
+┌─────────────────────────────────────────────────────────┐
+│  🎵 LX Music                                            │
+│  ├─ 🔍 搜索音乐                                          │
+│  └─ 📥 下载管理                                          │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  [搜索框: 请输入歌曲名、歌手、专辑]          [搜索]      │
+│                                                         │
+│  搜索结果:                                              │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ 歌名          歌手        专辑        [播放][下载] │   │
+│  │ 周杰伦-晴天    周杰伦      叶惠美      [▶] [⬇]    │   │
+│  │ 周杰伦-七里香  周杰伦      七里香      [▶] [⬇]    │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+│ ♫ 正在播放: 晴天 - 周杰伦      [◀] [▶] [▶▶]    🔊 80%  │
+└─────────────────────────────────────────────────────────┘
+```
+
+## 🚀 快速开始
+
+### 方式一: Docker 部署 (推荐)
 
 ```bash
+# 1. 克隆项目
+git clone https://github.com/your-repo/lx-music-web.git
+cd lx-music-web
+
+# 2. 构建并启动
+docker-compose up -d
+
+# 3. 访问
+# 打开浏览器访问 http://localhost:3000
+```
+
+### 方式二: 本地开发
+
+#### 后端
+
+```bash
+cd server
+
 # 安装依赖
 npm install
 
 # 启动服务
 npm start
 
-# 开发模式 (热重载)
+# 或开发模式
 npm run dev
 ```
 
-### 方式二: Docker 部署
+#### 前端
 
 ```bash
-# 构建镜像
-docker build -t lx-music-web .
+cd client
 
-# 运行容器
-docker run -d \
-  -p 3000:3000 \
-  -v ./data:/app/data \
-  -v ./music:/app/music \
-  --name lx-music-web \
-  lx-music-web
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+
+# 构建生产版本
+npm run build
 ```
 
-## 🚀 快速开始
+## 📖 使用指南
 
-### 1. 启动服务器
+### 1. 上传自定义源
 
-```bash
-npm start
-```
+访问 `http://localhost:3000` 后,进入"音源管理"页面:
 
-服务器将在 `http://localhost:3000` 启动。
+1. 点击"上传音源"
+2. 选择自定义源 JavaScript 文件
+3. 上传成功后即可使用
 
-### 2. 上传自定义源
+**测试源文件**: `server/tests/test-source.js`
 
-```bash
-curl -X POST http://localhost:3000/api/source/upload \
-  -F "source=@your-source.js"
-```
+### 2. 搜索音乐
 
-### 3. 搜索音乐
+1. 在搜索框中输入歌曲名、歌手或专辑
+2. 选择音源
+3. 点击搜索按钮
+4. 点击"播放"按钮在线播放
+5. 点击"下载"按钮添加到下载队列
 
-```bash
-curl -X POST http://localhost:3000/api/music/search \
-  -H "Content-Type: application/json" \
-  -d '{
-    "keyword": "周杰伦",
-    "source": "test",
-    "page": 1
-  }'
-```
+### 3. 管理下载
 
-### 4. 添加下载任务
+进入"下载管理"页面:
 
-```bash
-curl -X POST http://localhost:3000/api/download/add \
-  -H "Content-Type: application/json" \
-  -d '{
-    "songInfo": {
-      "id": "123",
-      "name": "歌曲名",
-      "singer": "歌手"
-    },
-    "quality": "128k",
-    "source": "test"
-  }'
-```
-
-## 📖 API 文档
-
-### 音乐相关
-
-#### 搜索音乐
-```
-POST /api/music/search
-Content-Type: application/json
-
-{
-  "keyword": "关键词",
-  "source": "音源ID",
-  "page": 1,
-  "limit": 30
-}
-```
-
-#### 获取播放链接
-```
-POST /api/music/url
-Content-Type: application/json
-
-{
-  "songInfo": { "id": "123", "name": "歌名" },
-  "quality": "128k",
-  "source": "音源ID"
-}
-```
-
-#### 获取歌词
-```
-POST /api/music/lyric
-Content-Type: application/json
-
-{
-  "songInfo": { "id": "123", "name": "歌名" },
-  "source": "音源ID"
-}
-```
-
-### 下载管理
-
-#### 添加下载任务
-```
-POST /api/download/add
-Content-Type: application/json
-
-{
-  "songInfo": { "id": "123", "name": "歌名", "singer": "歌手" },
-  "quality": "128k",
-  "source": "音源ID"
-}
-```
-
-#### 获取下载列表
-```
-GET /api/download/list?status=all&limit=100
-```
-
-#### 暂停下载
-```
-POST /api/download/pause
-Content-Type: application/json
-
-{
-  "taskId": "dl_xxx"
-}
-```
-
-#### 恢复下载
-```
-POST /api/download/resume
-Content-Type: application/json
-
-{
-  "taskId": "dl_xxx"
-}
-```
-
-### 音源管理
-
-#### 获取音源列表
-```
-GET /api/source/list
-```
-
-#### 上传自定义源
-```
-POST /api/source/upload
-Content-Type: multipart/form-data
-
-source: [JavaScript 文件]
-```
-
-#### 删除音源
-```
-DELETE /api/source/:id
-```
-
-#### 启用/禁用音源
-```
-POST /api/source/toggle
-Content-Type: application/json
-
-{
-  "sourceId": "source_id",
-  "enabled": true
-}
-```
-
-### 音频代理
-
-#### 代理音频流
-```
-GET /api/proxy/stream?url=[音频URL]&source=[音源ID]
-```
+- 查看所有下载任务
+- 实时查看下载进度
+- 暂停/恢复/删除任务
+- 筛选不同状态的任务
 
 ## 🔧 配置
 
 ### 环境变量
 
-```bash
-# 服务端口
+创建 `.env` 文件 (或修改 `docker-compose.yml`):
+
+```env
+# 服务器端口
 PORT=3000
 
 # 数据目录
@@ -219,67 +131,72 @@ MUSIC_DIR=/app/music
 
 # Node 环境
 NODE_ENV=production
+
+# 可选: HTTP 代理
+# HTTP_PROXY=http://proxy.example.com:8080
+# HTTPS_PROXY=http://proxy.example.com:8080
 ```
 
-### 目录结构
+## 📁 目录结构
 
 ```
 lx-music-web/
-├── server/
+├── server/                    # 后端
 │   ├── src/
-│   │   ├── core/              # 核心模块
+│   │   ├── core/             # 核心模块
 │   │   │   ├── SourceEngine.js
 │   │   │   ├── DownloadManager.js
 │   │   │   └── DatabaseManager.js
-│   │   ├── routes/            # 路由
-│   │   │   ├── music.js
-│   │   │   ├── download.js
-│   │   │   ├── source.js
-│   │   │   └── proxy.js
-│   │   └── app.js            # 应用主文件
-│   ├── tests/                # 测试
-│   ├── index.js              # 入口文件
+│   │   ├── routes/           # API 路由
+│   │   └── app.js           # Express 应用
+│   ├── tests/               # 测试
+│   ├── index.js             # 入口
 │   └── package.json
-├── data/                     # 数据目录 (挂载)
-│   └── lx-music.db          # SQLite 数据库
-└── music/                    # 音乐目录 (挂载)
+├── client/                   # 前端
+│   ├── src/
+│   │   ├── views/           # 页面
+│   │   ├── components/      # 组件
+│   │   ├── stores/          # 状态管理
+│   │   ├── api/             # API 封装
+│   │   ├── router/          # 路由
+│   │   ├── App.vue
+│   │   └── main.js
+│   ├── index.html
+│   ├── vite.config.js
+│   └── package.json
+├── Dockerfile               # Docker 构建文件
+├── docker-compose.yml       # Docker Compose 配置
+└── README.md
+```
+
+## 🔌 API 文档
+
+详细 API 文档请参考 [API.md](docs/API.md)
+
+### 主要端点
+
+```
+POST   /api/music/search          搜索音乐
+POST   /api/music/url              获取播放链接
+POST   /api/music/lyric            获取歌词
+POST   /api/download/add           添加下载任务
+GET    /api/download/list          获取下载列表
+GET    /api/source/list            获取音源列表
+POST   /api/source/upload          上传音源
+GET    /api/proxy/stream           代理音频流
 ```
 
 ## 🧪 测试
 
-### 运行单元测试
-
 ```bash
-npm test
+# 进入服务器目录
+cd server
+
+# 运行测试脚本
+node test-api.js
 ```
 
-### 测试自定义源
-
-服务器包含一个测试源 (`tests/test-source.js`),可以用于验证功能:
-
-```bash
-curl -X POST http://localhost:3000/api/source/upload \
-  -F "source=@tests/test-source.js"
-```
-
-## 🐛 故障排除
-
-### 问题: 无法加载自定义源
-
-**解决方案**: 检查源脚本是否实现了必需的方法 (`search`, `getUrl`)
-
-### 问题: 音频无法播放
-
-**解决方案**: 使用代理接口播放: `/api/proxy/stream?url=...`
-
-### 问题: 下载失败
-
-**解决方案**: 
-1. 检查音乐目录权限
-2. 查看日志输出
-3. 确认播放链接有效性
-
-## 📝 开发自定义源
+## 🛠️ 开发自定义源
 
 ### 基本结构
 
@@ -292,9 +209,7 @@ curl -X POST http://localhost:3000/api/source/upload \
  */
 
 // 搜索方法 (必需)
-globalThis.search = async (params) => {
-  const { keyword, page, limit } = params
-  // 实现搜索逻辑
+globalThis.search = async ({ keyword, page, limit }) => {
   return [
     {
       id: '歌曲ID',
@@ -307,31 +222,62 @@ globalThis.search = async (params) => {
 }
 
 // 获取播放链接 (必需)
-globalThis.getUrl = async (params) => {
-  const { songInfo, quality } = params
-  // 实现获取播放链接逻辑
+globalThis.getUrl = async ({ songInfo, quality }) => {
   return 'https://example.com/song.mp3'
 }
 
 // 获取歌词 (可选)
-globalThis.getLyric = async (params) => {
-  const { songInfo } = params
-  // 返回 LRC 格式歌词
+globalThis.getLyric = async ({ songInfo }) => {
   return '[00:00.00]歌词内容'
 }
 ```
 
 ### 可用 API
 
-自定义源中可以使用以下 API:
-
 - `lx.request(url, options, callback)` - HTTP 请求
 - `lx.utils.crypto.md5(data)` - MD5 加密
-- `lx.utils.crypto.aesEncrypt(data, mode, key, iv)` - AES 加密
-- `lx.utils.buffer.from(data, encoding)` - 创建 Buffer
-- `lx.utils.zlib.gzip(data)` - Gzip 压缩
+- `lx.utils.crypto.aesEncrypt()` - AES 加密
+- `lx.utils.buffer.from()` - Buffer 操作
+- `lx.utils.zlib.gzip()` - Gzip 压缩
 
-详细文档请参考 `docs/custom-source-api.md`
+## 🐛 故障排除
+
+### 问题: 容器启动失败
+
+**解决方案**:
+```bash
+# 查看日志
+docker-compose logs -f
+
+# 重新构建
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+### 问题: 音频无法播放
+
+**解决方案**: 
+音频链接会自动通过代理播放,如果仍无法播放:
+1. 检查音源是否返回有效链接
+2. 查看浏览器控制台错误
+3. 确认服务器网络正常
+
+### 问题: 下载失败
+
+**解决方案**:
+1. 检查音乐目录权限
+2. 查看服务器日志
+3. 确认磁盘空间充足
+
+## 📝 开发计划
+
+- [x] 后端核心模块
+- [x] 前端 Vue 3 界面
+- [x] Docker 部署
+- [ ] 用户认证系统
+- [ ] 播放列表管理
+- [ ] 移动端适配
+- [ ] 多用户支持
 
 ## 🤝 贡献
 
@@ -344,3 +290,13 @@ Apache License 2.0
 ## 🙏 致谢
 
 本项目基于 [lx-music-desktop](https://github.com/lyswhut/lx-music-desktop) 的核心逻辑开发。
+
+## ⚠️ 免责声明
+
+本项目仅供学习交流使用,不提供任何内置音乐源。用户需自行承担使用自定义源的法律责任。禁止用于商业用途。
+
+---
+
+**项目状态**: ✅ 核心功能完成 | 🚀 可用于生产
+
+**最后更新**: 2026-01-28
