@@ -27,11 +27,11 @@ router.post('/search', async (req, res) => {
   }
 
   try {
-    const sourceEngine = req.app.get('sourceEngine')
+    const searchService = req.app.get('searchService')
     
-    console.log(`[API] 搜索音乐: ${keyword} (源: ${source}, 页: ${page})`)
+    console.log(`[API] 搜索音乐: ${keyword} (平台: ${source}, 页: ${page})`)
     
-    const results = await sourceEngine.search(source, keyword, page, limit)
+    const results = await searchService.search(source, keyword, page, limit)
     
     res.json({
       success: true,
