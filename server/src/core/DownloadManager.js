@@ -244,6 +244,8 @@ class DownloadManager extends EventEmitter {
 
       console.log(`[DownloadManager] 开始下载: ${url.substring(0, 100)}...`)
 
+
+
       // 3. 检查是否支持断点续传
       const existingSize = fs.existsSync(filepath) ? fs.statSync(filepath).size : 0
       const headers = {
@@ -256,10 +258,16 @@ class DownloadManager extends EventEmitter {
       }
 
       // 4. 发送请求
-      const response = await fetch(url, { headers, timeout: 30000 })
+      let response
+      try {
+        response = await fetch(url, { headers, timeout: 30000 })
 
-      if (!response.ok && response.status !== 206) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        if (!response.ok && response.status !== 206) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+      } catch (error) {
+        console.error(`[DownloadManager] 下载失败: ${error.message}`)
+        throw error
       }
 
       // 5. 获取文件总大小
@@ -303,6 +311,78 @@ class DownloadManager extends EventEmitter {
 
       // 7. 下载完成
       const fileSize = fs.statSync(filepath).size
+      
+      // 验证下载的文件是否为有效的音频文件
+      
+      // 检查文件的前几个字节，看看是否是HTML文件或其他非音频文件
+      const fileStart = fs.readFileSync(filepath, { encoding: 'utf8', length: 100 })
+      
+      // 检查是否是HTML文件
+      if (fileStart.includes('<!DOCTYPE html>') || fileStart.includes('<html')) {
+        console.error(`[DownloadManager] 下载的文件是HTML文件，不是音频文件`)
+        
+        // 删除无效文件
+        fs.unlinkSync(filepath)
+        
+        // 标记任务为失败
+        this.updateTaskStatus(taskId, 'failed', null, null, '下载的文件是HTML文件，不是音频文件')
+        
+        this.emit('failed', {
+          taskId,
+          songName: songInfo.name,
+          error: '下载的文件是HTML文件，不是音频文件'
+        })
+        
+        throw new Error('下载的文件是HTML文件，不是音频文件')
+      }
+      
+      // 检查文件大小是否合理（至少应该大于100KB）
+      if (fileSize < 1024 * 100) { // 小于100KB的文件可能不是有效的音频文件
+        console.error(`[DownloadManager] 下载的文件大小异常: ${fileSize} bytes`)
+        
+        // 删除无效文件
+        fs.unlinkSync(filepath)
+        
+        // 标记任务为失败
+        this.updateTaskStatus(taskId, 'failed', null, null, '下载的文件不是有效的音频文件')
+        
+        this.emit('failed', {
+          taskId,
+          songName: songInfo.name,
+          error: '下载的文件不是有效的音频文件'
+        })
+        
+        throw new Error('下载的文件不是有效的音频文件')
+      }
+      
+      // 检查文件头是否为有效的音频文件格式
+      const fileHeader = fs.readFileSync(filepath, { encoding: 'hex', length: 4 })
+      const validAudioHeaders = [
+        '49443303', // MP3 ID3v2
+        '464f524d', // WAV
+        '664c6143', // FLAC
+        '4f676753', // OGG
+        '52494646'  // RIFF (WAV)
+      ]
+      
+      if (!validAudioHeaders.includes(fileHeader)) {
+        console.error(`[DownloadManager] 下载的文件可能不是有效的音频文件，文件头: ${fileHeader}`)
+        
+        // 删除无效文件
+        fs.unlinkSync(filepath)
+        
+        // 标记任务为失败
+        this.updateTaskStatus(taskId, 'failed', null, null, '下载的文件不是有效的音频文件')
+        
+        this.emit('failed', {
+          taskId,
+          songName: songInfo.name,
+          error: '下载的文件不是有效的音频文件'
+        })
+        
+        throw new Error('下载的文件不是有效的音频文件')
+      }
+      
       this.updateTaskStatus(taskId, 'completed', filepath, fileSize)
       
       this.emit('completed', {
