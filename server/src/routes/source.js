@@ -69,7 +69,7 @@ router.get('/list', (req, res) => {
  * 上传自定义源
  * POST /api/source/upload
  */
-router.post('/upload', upload.single('source'), async (req, res) => {
+router.post('/upload', upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({
       success: false,
@@ -257,6 +257,83 @@ router.get('/export/:id', (req, res) => {
     res.send(source.script_content)
   } catch (error) {
     console.error('[API] 导出源失败:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+})
+
+/**
+ * 从 URL 导入源
+ * POST /api/source/import-url
+ */
+router.post('/import-url', async (req, res) => {
+  const { url } = req.body
+
+  if (!url) {
+    return res.status(400).json({
+      success: false,
+      message: '请提供源文件 URL'
+    })
+  }
+
+  try {
+    const sourceEngine = req.app.get('sourceEngine')
+    const db = req.app.get('db')
+    
+    console.log(`[API] 从 URL 导入源: ${url}`)
+    
+    // 下载源文件
+    const fetch = require('node-fetch')
+    const response = await fetch(url, {
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'LX-Music-Web/1.0.0'
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error(`下载失败: ${response.status} ${response.statusText}`)
+    }
+    
+    const scriptCode = await response.text()
+    
+    // 生成源ID
+    const sourceId = crypto.createHash('md5').update(scriptCode).digest('hex').substring(0, 16)
+    
+    // 加载源到引擎
+    const loadResult = await sourceEngine.loadSource(sourceId, scriptCode)
+    
+    // 保存到数据库
+    const now = Date.now()
+    db.prepare(`
+      INSERT OR REPLACE INTO custom_sources 
+      (id, name, description, version, author, homepage, script_content, enabled, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+    `).run(
+      sourceId,
+      loadResult.metadata.name || 'Unknown',
+      loadResult.metadata.description || '',
+      loadResult.metadata.version || '1.0.0',
+      loadResult.metadata.author || 'Unknown',
+      loadResult.metadata.homepage || '',
+      scriptCode,
+      now,
+      now
+    )
+    
+    res.json({
+      success: true,
+      data: {
+        sourceId,
+        metadata: loadResult.metadata,
+        url
+      },
+      message: '从 URL 导入源成功'
+    })
+  } catch (error) {
+    console.error('[API] 从 URL 导入源失败:', error)
     res.status(500).json({
       success: false,
       message: error.message
