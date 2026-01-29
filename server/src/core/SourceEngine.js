@@ -558,6 +558,84 @@ class SourceEngine extends EventEmitter {
   }
 
   /**
+   * 获取运行中的源
+   */
+  getSources() {
+    const sources = []
+    for (const [sourceId, sourceInfo] of this.sources.entries()) {
+      sources.push({
+        id: sourceId,
+        metadata: sourceInfo.metadata || {},
+        status: sourceInfo.status || 'ok',
+        loadedAt: sourceInfo.loadedAt,
+        source: sourceInfo
+      })
+    }
+    return sources
+  }
+
+  /**
+   * 卸载源
+   */
+  unloadSource(sourceId) {
+    if (this.sources.has(sourceId)) {
+      this.sources.delete(sourceId)
+      this.handlers.delete(sourceId)
+      console.log(`[SourceEngine] 源 ${sourceId} 已卸载`)
+    }
+  }
+
+  /**
+   * 启用/禁用源
+   */
+  toggleSource(sourceId, enabled) {
+    if (this.sources.has(sourceId)) {
+      const sourceInfo = this.sources.get(sourceId)
+      sourceInfo.enabled = enabled
+      console.log(`[SourceEngine] 源 ${sourceId} 已${enabled ? '启用' : '禁用'}`)
+    }
+  }
+
+  /**
+   * 从文件加载源
+   */
+  async loadSourceFromFile(filePath) {
+    try {
+      const scriptCode = fs.readFileSync(filePath, 'utf-8')
+      const sourceId = `file_${path.basename(filePath)}`
+      return await this.loadSource(sourceId, scriptCode)
+    } catch (error) {
+      console.error(`[SourceEngine] 从文件加载源失败:`, error.message)
+      throw error
+    }
+  }
+
+  /**
+   * 从目录加载所有源
+   */
+  async loadSourcesFromDirectory(directory) {
+    try {
+      const files = fs.readdirSync(directory)
+      const jsFiles = files.filter(file => file.endsWith('.js'))
+      
+      const results = []
+      for (const jsFile of jsFiles) {
+        try {
+          const result = await this.loadSourceFromFile(path.join(directory, jsFile))
+          results.push(result)
+        } catch (error) {
+          console.error(`[SourceEngine] 加载源文件 ${jsFile} 失败:`, error.message)
+        }
+      }
+      
+      return results
+    } catch (error) {
+      console.error(`[SourceEngine] 从目录加载源失败:`, error.message)
+      throw error
+    }
+  }
+
+  /**
    * 获取平台特定的请求选项
    */
   getPlatformSpecificOptions(source, url) {
