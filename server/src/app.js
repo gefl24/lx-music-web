@@ -14,6 +14,7 @@ const fs = require('fs')
 const DatabaseManager = require('./core/DatabaseManager')
 const SourceEngine = require('./core/SourceEngine')
 const DownloadManager = require('./core/DownloadManager')
+const SearchService = require('./core/SearchService')
 
 // 导入路由
 const musicRouter = require('./routes/music')
@@ -69,6 +70,9 @@ class Application {
 
       // 3. 初始化下载管理器
       this.downloadManager = new DownloadManager(db, MUSIC_DIR, this.sourceEngine)
+      
+      // 4. 初始化搜索服务
+      this.searchService = new SearchService()
 
       // 4. 设置中间件
       this.setupMiddleware()
@@ -130,6 +134,7 @@ class Application {
     this.app.set('db', this.database.getDatabase())
     this.app.set('sourceEngine', this.sourceEngine)
     this.app.set('downloadManager', this.downloadManager)
+    this.app.set('searchService', this.searchService)
   }
 
   /**
