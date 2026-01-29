@@ -170,7 +170,7 @@ class SourceEngine extends EventEmitter {
               loadedAt: Date.now()
             })
             console.log(`[SourceEngine] 源 ${sourceId} 初始化成功`)
-            resolve({ success: true, sources: data.sources })
+            resolve({ success: true, metadata: data.sources || {} })
           }
         })
 
@@ -181,9 +181,12 @@ class SourceEngine extends EventEmitter {
         // 如果脚本执行没有报错且注册了 handler，我们也认为成功
         setTimeout(() => {
           if (!this.sources.has(sourceId) && this.handlers.has(sourceId)) {
-             this.sources.set(sourceId, { loadedAt: Date.now() })
+             this.sources.set(sourceId, { 
+               metadata: {}, 
+               loadedAt: Date.now() 
+             })
              console.log(`[SourceEngine] 源 ${sourceId} 已加载 (无显式元数据)`)
-             resolve({ success: true })
+             resolve({ success: true, metadata: {} })
           }
         }, 2000)
 
