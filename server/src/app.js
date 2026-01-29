@@ -26,7 +26,7 @@ const favoriteRouter = require('./routes/favorite')
 const tagRouter = require('./routes/tag')
 
 // 环境配置
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 3002
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../../data')
 const MUSIC_DIR = process.env.MUSIC_DIR || path.join(__dirname, '../../music')
 
