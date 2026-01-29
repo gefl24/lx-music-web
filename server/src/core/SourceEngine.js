@@ -305,9 +305,9 @@ class SourceEngine extends EventEmitter {
    */
   async getMusicUrl(source, songInfo, quality = '128k') {
     const result = await this.callSourceHandler(source, 'musicUrl', {
-      type: 'music',
+      type: quality, // 源脚本期望 type 字段作为音质参数
       musicInfo: songInfo,
-      quality
+      quality // 同时保留 quality 字段以兼容其他源
     })
     return result // 通常返回 { url: '...', rate: '128k' }
   }
