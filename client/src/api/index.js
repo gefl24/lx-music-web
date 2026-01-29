@@ -114,7 +114,7 @@ export const sourceApi = {
   // 上传音源
   upload(file) {
     const formData = new FormData()
-    formData.append('source', file)
+    formData.append('file', file)
     return request.post('/source/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
