@@ -54,6 +54,9 @@ class Application {
     try {
       console.log('[App] 初始化应用...')
 
+      // 检查环境
+      this.checkEnvironment()
+
       // 1. 初始化数据库
       this.database = new DatabaseManager(DATA_DIR)
       const db = this.database.getDatabase()
@@ -233,14 +236,41 @@ class Application {
 
       for (const source of sources) {
         try {
+          console.log(`[App] 尝试加载源: ${source.name} (ID: ${source.id})`)
           await this.sourceEngine.loadSource(source.id, source.script_content)
           console.log(`[App] 加载源成功: ${source.name}`)
         } catch (error) {
           console.error(`[App] 加载源失败: ${source.name}`, error.message)
+          // 即使源加载失败，也继续加载其他源
+          continue
         }
       }
     } catch (error) {
       console.error('[App] 加载自定义源失败:', error)
+    }
+  }
+
+  /**
+   * 检查环境并设置适当的配置
+   */
+  checkEnvironment() {
+    // 检查是否在Docker环境中运行
+    const isDocker = fs.existsSync('/.dockerenv') || process.env.DOCKER === 'true'
+    console.log(`[App] 运行环境: ${isDocker ? 'Docker' : '本地开发'}`)
+    
+    // 根据环境设置适当的配置
+    if (isDocker) {
+      console.log(`[App] Docker环境配置:`)
+      console.log(`     - 服务地址: http://localhost:3000`)
+      console.log(`     - 数据目录: /app/data`)
+      console.log(`     - 音乐目录: /app/music`)
+      console.log(`     - 静态文件目录: /app/public`)
+    } else {
+      console.log(`[App] 本地开发环境配置:`)
+      console.log(`     - 服务地址: http://localhost:${PORT}`)
+      console.log(`     - 数据目录: ${DATA_DIR}`)
+      console.log(`     - 音乐目录: ${MUSIC_DIR}`)
+      console.log(`     - 静态文件目录: ${fs.existsSync(path.join(__dirname, '../public')) ? path.join(__dirname, '../public') : path.join(__dirname, '../../public')}`)
     }
   }
 
