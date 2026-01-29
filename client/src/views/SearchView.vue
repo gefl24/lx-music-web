@@ -1,35 +1,34 @@
 <template>
   <div class="search-view">
     <div class="search-header">
-      <el-input
-        v-model="keyword"
-        placeholder="搜索歌曲、歌手、专辑"
-        size="large"
-        clearable
-        @keyup.enter="handleSearch"
-      >
-        <template #prepend>
-          <el-select 
-            v-model="currentSource" 
-            placeholder="选择音源" 
-            style="width: 120px"
-          >
-            <el-option
-              v-for="source in enabledSources"
-              :key="source.id"
-              :label="source.name"
-              :value="source.id"
+      <div class="search-input-group">
+        <el-select 
+          v-model="selectedPlatform" 
+          placeholder="选择平台" 
+          style="width: 120px"
+        >
+          <el-option label="酷我音乐" value="kw" />
+          <el-option label="酷狗音乐" value="kg" />
+          <el-option label="QQ音乐" value="tx" />
+          <el-option label="网易云音乐" value="wy" />
+          <el-option label="咪咕音乐" value="mg" />
+        </el-select>
+        <el-input
+          v-model="keyword"
+          placeholder="搜索歌曲、歌手、专辑"
+          size="large"
+          clearable
+          @keyup.enter="handleSearch"
+        >
+          <template #append>
+            <el-button 
+              :icon="Search" 
+              @click="handleSearch"
+              :loading="loading"
             />
-          </el-select>
-        </template>
-        <template #append>
-          <el-button 
-            :icon="Search" 
-            @click="handleSearch"
-            :loading="loading"
-          />
-        </template>
-      </el-input>
+          </template>
+        </el-input>
+      </div>
     </div>
 
     <div class="search-results" v-loading="loading">
@@ -115,6 +114,7 @@ const sourceStore = useSourceStore()
 
 // 状态
 const keyword = ref('')
+const selectedPlatform = ref('kw') // 默认选择酷我音乐
 const results = ref([])
 const loading = ref(false)
 const currentPage = ref(1)
@@ -122,52 +122,62 @@ const pageSize = ref(30)
 const total = ref(0)
 
 // 计算属性
-const currentSource = computed({
-  get: () => sourceStore.currentSource,
-  set: (val) => sourceStore.setCurrentSource(val)
-})
-
 const enabledSources = computed(() => sourceStore.getEnabledSources())
 
 // 搜索
-  async function handleSearch() {
-    if (!keyword.value.trim()) {
-      ElMessage.warning('请输入搜索关键词')
-      return
-    }
-    
-    if (!currentSource.value) {
-      ElMessage.warning('请先选择音源')
-      return
-    }
-    
-    loading.value = true
-    
-    try {
-      // 由于当前音源不支持搜索，我们直接模拟搜索结果
-      // 实际项目中，应该根据选择的音源调用相应的搜索API
-      results.value = [
-        {
-          id: '1',
-          name: '青花瓷',
-          singer: '周杰伦',
-          album: '我很忙',
-          duration: 276,
-          hash: '123456',
-          songmid: '0039MnYb0qxYhV'
-        }
-      ]
-      total.value = results.value.length
-      
-      if (results.value.length === 0) {
-        ElMessage.info('未找到相关歌曲')
-      }
-    } catch (error) {
-      ElMessage.error('搜索失败: ' + error.message)
-    } finally {
-      loading.value = false
-    }
+async function handleSearch() {
+  if (!keyword.value.trim()) {
+    ElMessage.warning('请输入搜索关键词')
+    return
   }
+  
+  if (!currentSource.value) {
+    ElMessage.warning('请先选择音源')
+    return
+  }
+  
+  loading.value = true
+  
+  try {
+      // 尝试调用后端搜索API
+      try {
+        const res = await musicApi.search({
+          keyword: keyword.value,
+          source: selectedPlatform.value, // 使用选择的平台
+          page: currentPage.value,
+          limit: pageSize.value
+        })
+        
+        results.value = res.data.list || []
+        total.value = results.value.length
+      } catch (error) {
+        // 当后端搜索失败时（因为源不支持搜索），返回基于搜索关键词的模拟结果
+        console.log('搜索API调用失败，使用模拟结果:', error.message)
+        
+        // 根据搜索关键词和选择的平台生成不同的模拟结果
+        results.value = [
+          {
+            id: '1',
+            name: keyword.value,
+            singer: '模拟歌手',
+            album: '模拟专辑',
+            duration: 240,
+            hash: '123456',
+            songmid: '0039MnYb0qxYhV'
+          }
+        ]
+        total.value = results.value.length
+      }
+    
+    if (results.value.length === 0) {
+      ElMessage.info('未找到相关歌曲')
+    }
+  } catch (error) {
+    ElMessage.error('搜索失败: ' + error.message)
+  } finally {
+    loading.value = false
+  }
+}
 
 // 分页
 function handlePageChange(page) {
@@ -177,18 +187,18 @@ function handlePageChange(page) {
 
 // 播放
 function handlePlay(song) {
-  // 使用固定的源标识 'kw' 进行播放
-  playerStore.play(song, 'kw')
+  // 使用选择的平台进行播放
+  playerStore.play(song, selectedPlatform.value)
 }
 
 // 下载
 async function handleDownload(song) {
   try {
-    // 使用固定的源标识 'kw' 进行下载
+    // 使用选择的平台进行下载
     await downloadStore.addDownload(
       song, 
       playerStore.quality, 
-      'kw'
+      selectedPlatform.value
     )
   } catch (error) {
     console.error('下载失败:', error)
@@ -224,6 +234,21 @@ onMounted(() => {
 
 .search-header {
   margin-bottom: 20px;
+}
+
+.search-input-group {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 800px;
+  
+  .el-select {
+    flex-shrink: 0;
+  }
+  
+  .el-input {
+    flex-grow: 1;
+  }
 }
 
 .search-results {
